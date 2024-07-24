@@ -1,10 +1,24 @@
 # git_utils 
 
-Rust implementation of the Bash scripts I have written for various git utlities I use 
+Rust implementation of the Bash scripts I have written for various git utlities I use.
+
+## Platform
+
+Built for Windows, will add Linux and MACOS soon. 
 
 ## git_workflow
 
 Checks the current running/ran workflow, I mainly use this for checking the deployment of github pages.
+
+You need to need to set an environment variable `GITHUB_TOKEN_PATH` that stores the path to your GitHub token. 
+
+**For example:**
+
+```sh
+export GITHUB_TOKEN_PATH="/absolute/path/to/github_token
+```
+
+**Output:**
 
 ```
 Checking the last executed run in git@github.com:USER/REPO repository's workflow:
@@ -20,6 +34,8 @@ API Rate Limit remaining: 4994
 
 Checks current status of branches in repo, based off of the [better-branch.sh](https://gist.github.com/schacon/e9e743dee2e92db9a464619b99e94eff) script by [schacon](https://gist.github.com/schacon/).
 
+**Output:**
+
 ```
 Repo: git@github.com:USER/REPO
 Ahead Behind Branch                         Last Commit
@@ -32,9 +48,11 @@ Ahead Behind Branch                         Last Commit
 
 Summation and average of all author commits, insertions and deletions for a given repo or branch, I use this for ascertaining numerically the contribution each student has contributed to the repo. It is more of an indication, pinch of salt.
 
-$ git_stats 
+**Outputs:**
 
 ```
+$ git_stats 
+
 Author     Commits   Insertions  Deletions   Insertion-Deletion
 author1       1         0           0           0
 author2       3         101         0           101
@@ -49,8 +67,23 @@ Total         269       3748        4468        3234
 Avg           29.89     416.44      496.44      359.33
 ```
 
+```
+$git_stats dev
+
+Author     Commits   Insertions  Deletions   Insertion-Deletion
+author1       2         218         0           218
+author2       3         101         0           101
+author3       55        321         1947        1626        
+author4       12        139         126         13
+author5       7         242         39          203
+author6       1         0           0           0
+author7       16        70          412         342
+author8       144       2409        1726        683
+author9       17        198         204         6
+Total         257       3698        4454        3192        
+Avg           28.56     410.89      494.89      354.67 
+```
+
 ## Future
 
 More utilities might be added if I need them. 
-
-## Licence
