@@ -84,6 +84,44 @@ Total         257       3698        4454        3192
 Avg           28.56     410.89      494.89      354.67 
 ```
 
+## Git Tagging
+
+I wanted functionality that auto increments tags for a workflow, where if a workflow sees the tag in the recent push then the github pages are deployed. 
+
+Your Git commit message must be following syntax:
+
+```
+git commit -m "<add/del/fix/maj/modi>: message"
+```
+
+Where `maj` is the key word to increment the major number and reset the minor and patch numbers, `add`, `mod` and `del` are consider minor, finally, `fix` is a patch:
+
+```
+tag v1.0.0 #maj.minor.patch
+```
+
+Where no tag currently exists `v1.0.0` will be generated 
+
+```
+$ git_tagging
+New Tag: v1.0.0 on Commit: 4e7091c
+v1.0.0          Commit hash: 4e7091c
+
+$ git log
+* 4e7091c (HEAD -> main, tag: v1.0.0) add: added some files
+* 5c5b09d init: initial commit
+
+$ gcm "del: deleted an unused file"
+[main 7348470] del: deleted an unused file
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ delete mode 100644 second
+
+$ git_tagging
+New Tag: v1.1.0 on Commit: 7348470
+v1.1.0          Commit hash: 7348470
+v1.0.0          Commit hash: 4e7091c
+```
+
 ## Future
 
 More utilities might be added if I need them. 
