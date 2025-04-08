@@ -4,3 +4,6 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+globset = "0.4"
+itertools = "0.12"
+clap = { version = "4", features = ["derive"] }
