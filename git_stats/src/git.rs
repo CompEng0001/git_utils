@@ -1,11 +1,45 @@
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::process::Command;
+use std::process::{Command,exit};
 use std::str;
 use std::io::Write;
+use std::io;
 
 use crate::arg::Config;
 use crate::report::AuthorStats;
+
+
+/// Checks to see if git installed and in PATH and if in a git repo
+pub fn in_git_repo_check() {
+    let output = Command::new("git")
+        .args(&["rev-parse", "--is-inside-work-tree"])
+        .output();
+
+    match output {
+        Ok(output) => {
+            if output.status.success() {
+                let result = String::from_utf8_lossy(&output.stdout);
+                if result.trim() != "true" {
+                    eprintln!("Error: Git is installed, but this is not inside a Git working tree.");
+                    exit(1);
+                }
+            } else {
+                eprintln!("Error: Git command failed. Are you sure this is a Git repository?");
+                exit(1);
+            }
+        }
+        Err(err) => match err.kind() {
+            io::ErrorKind::NotFound => {
+                eprintln!("Error: Git is not installed or not found in PATH.");
+                exit(1);
+            }
+            _ => {
+                eprintln!("Error: Failed to execute Git command: {}", err);
+                exit(1);
+            }
+        },
+    }
+}
 
 /// Collects Git contribution statistics per author based on the provided configuration.
 ///
