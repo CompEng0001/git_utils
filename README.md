@@ -48,40 +48,49 @@ Ahead Behind Branch                         Last Commit
 
 Summation and average of all author commits, insertions and deletions for a given repo or branch, I use this for ascertaining numerically the contribution each student has contributed to the repo. It is more of an indication, pinch of salt.
 
+```md
+$git_stats --help
+
+Analyze Git commit contributions per author
+
+Usage: git_stats.exe [OPTIONS]
+
+Options:
+      --author <AUTHOR>           Filter results by a specific author name (case-insensitive)
+      --all                       Include all users (e.g., GitHub, bots) in the results
+      --merge                     Include merge commits in the analysis
+      --branch <BRANCH>           Git branch to analyze. Defaults to the current branch if not specified
+      --exclude [<GLOB>...]       Inline glob patterns used to exclude files or directories
+      --exclude-from-file <FILE>  Path to a file containing additional exclude patterns (one per line)
+  -h, --help                      Print help
+```
+
 **Outputs:**
 
 ```
-$ git_stats 
+$ git_stats --all
 
-Author     Commits   Insertions  Deletions   Insertion-Deletion
-author1       1         0           0           0
-author2       3         101         0           101
-author3       18        71          416         345
-author4       154       2458        1736        722
-author5       55        321         1947        1626
-author6       17        198         204         6
-author7       7         242         39          203
-author8       2         218         0           218
-author9       12        139         126         13
-Total         269       3748        4468        3234
-Avg           29.89     416.44      496.44      359.33
+Author        Commits   Files         Insertions  Deletions   Net Change  Most Ext    Least Ext
+github        5         6             71          1           70          md          py
+author1       8         8             373         203         170         py          md
+author2       2         3             69          1           68          md          py
+--------------------------------------------------------------------------------------------------
+Total         15        17            513         205         308         -           -
+Avg           5.00      5.67          171.00      68.33       102.67      -           -
+
 ```
 
 ```
-$git_stats dev
+$git_Stats --branch dev
+Processing commit    18/18
+Done processing 18 commits.
 
-Author     Commits   Insertions  Deletions   Insertion-Deletion
-author1       2         218         0           218
-author2       3         101         0           101
-author3       55        321         1947        1626        
-author4       12        139         126         13
-author5       7         242         39          203
-author6       1         0           0           0
-author7       16        70          412         342
-author8       144       2409        1726        683
-author9       17        198         204         6
-Total         257       3698        4454        3192        
-Avg           28.56     410.89      494.89      354.67 
+Author        Commits   Files         Insertions  Deletions   Net Change  Most Ext    Least Ext
+author1       8         8             373         203         170         py          md
+author2       2         3             69          1           68          md          py
+--------------------------------------------------------------------------------------------------
+Total         10        11            442         204         238         -           -
+Avg           5.00      5.50          221.00      102.00      119.00      -           -
 ```
 
 ## Git Tagging
