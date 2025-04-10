@@ -7,6 +7,8 @@
     <a href="https://github.com/CompEng0001/git_utils/blob/main/LICENSE.md">
         <img alt="GitHub License" src="https://img.shields.io/github/license/CompEng0001/git_utils?style=for-the-badge", alt="License MIT">
     </a>
+    <img src="https://img.shields.io/github/v/release/compeng0001/git_utils", alt="Release">
+    <img src="https://img.shields.io/github/v/tags/compeng0001/git_utils", alt="Tags"> 
   <a href="https://github.com/CompEng0001/git_utils/stargazers">
         <img src="https://img.shields.io/github/stars/CompEng0001/git_utils?style=for-the-badge" alt="GitHub Stars">
   </a>
