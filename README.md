@@ -3,7 +3,7 @@
 </div>
 
 <p align="center">
-    <img src="https://img.shields.io/badge/Made%20with-C-3776AB?style=for-the-badge&logo=c&logoColor=white", alt="Made with Rust">
+    <img src="https://img.shields.io/badge/Made%20with-rust-CE412B?style=for-the-badge&logo=rust&logoColor=white", alt="Made with Rust">
     <a href="https://github.com/CompEng0001/git_utils/blob/main/LICENSE.md">
         <img alt="GitHub License" src="https://img.shields.io/github/license/CompEng0001/git_utils?style=for-the-badge", alt="License MIT">
     </a>
