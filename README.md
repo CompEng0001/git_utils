@@ -1,22 +1,35 @@
-# git_utils 
+<div align="center">
+	<h1 align="center"><b>git_utils</b></h1>
+</div>
 
-Rust implementation of the Bash scripts I have written for various git utlities I use.
+<p align="center">
+    <img src="https://img.shields.io/badge/Made%20with-C-3776AB?style=for-the-badge&logo=c&logoColor=white alt="Made with Rust">
+    <a href="https://github.com/CompEng0001/git_utils/blob/main/LICENSE.md">
+        <img alt="GitHub License" src="https://img.shields.io/github/license/CompEng0001/git_utils?style=for-the-badge", alt="License MIT">
+    </a>
+  <a href="https://github.com/CompEng0001/git_utils/stargazers">
+        <img src="https://img.shields.io/github/stars/CompEng0001/git_utils?style=for-the-badge" alt="GitHub Stars">
+  </a>
+</p>
+
+Rust implementation of the Bash scripts I have written for various git utilities I use.
 
 ## Platform
 
-Built for Windows, will add Linux and MACOS soon. 
+Built for Windows, will add Linux and MACOS soon.
 
 ## git_workflow
 
-Checks the current running/ran workflow, I mainly use this for checking the deployment of github pages.
+Checks the current running/ran workflow, I mainly use this for checking the deployment of GitHub pages.
 
-You need to need to set an environment variable `GITHUB_TOKEN_PATH` that stores the path to your GitHub token. 
-
-**For example:**
-
-```sh
-export GITHUB_TOKEN_PATH="/absolute/path/to/github_token
-```
+> [!IMPORTANT]
+> You need to set an environment variable `GITHUB_TOKEN_PATH` that stores the path to your GitHub token.
+>
+> **For example:**
+>
+> ```sh
+> export GITHUB_TOKEN_PATH="/absolute/path/to/github_token
+> ```
 
 **Output:**
 
@@ -56,13 +69,13 @@ Analyze Git commit contributions per author
 Usage: git_stats.exe [OPTIONS]
 
 Options:
-      --author <AUTHOR>           Filter results by a specific author name (case-insensitive)
-      --all                       Include all users (e.g., GitHub, bots) in the results
-      --merge                     Include merge commits in the analysis
-      --branch <BRANCH>           Git branch to analyze. Defaults to the current branch if not specified
-      --exclude [<GLOB>...]       Inline glob patterns used to exclude files or directories
-      --exclude-from-file <FILE>  Path to a file containing additional exclude patterns (one per line)
-  -h, --help                      Print help
+--author <AUTHOR> Filter results by a specific author name (case-insensitive)
+--all Include all users (e.g., GitHub, bots) in the results
+--merge Include merge commits in the analysis
+--branch <BRANCH> Git branch to analyze. Defaults to the current branch if not specified
+--exclude [<GLOB>...] Inline glob patterns used to exclude files or directories
+--exclude-from-file <FILE> Path to a file containing additional exclude patterns (one per line)
+-h, --help Print help
 ```
 
 **Outputs:**
@@ -95,12 +108,12 @@ Avg           5.00      5.50          221.00      102.00      119.00      -     
 
 ## Git Tagging
 
-I wanted functionality that auto increments tags for a workflow, where if a workflow sees the tag in the recent push then the github pages are deployed. 
+I wanted functionality that auto increments tags for a workflow, where if a workflow sees the tag in the recent push then the github pages are deployed.
 
 Your Git commit message must be following syntax:
 
 ```
-git commit -m "<add/del/fix/maj/modi>: message"
+git commit -m "<add/del/fix/maj/mod>: message"
 ```
 
 Where `maj` is the key word to increment the major number and reset the minor and patch numbers, `add`, `mod` and `del` are consider minor, finally, `fix` is a patch:
@@ -109,7 +122,7 @@ Where `maj` is the key word to increment the major number and reset the minor an
 tag v1.0.0 #maj.minor.patch
 ```
 
-Where no tag currently exists `v1.0.0` will be generated 
+Where no tag currently exists `v1.0.0` will be generated
 
 ```
 $ git_tagging
@@ -133,4 +146,4 @@ v1.0.0          Commit hash: 4e7091c
 
 ## Future
 
-More utilities might be added if I need them. 
+More utilities might be added if I need them.
