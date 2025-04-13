@@ -36,27 +36,77 @@ Checks the current running/ran workflow, I mainly use this for checking the depl
 **Output:**
 
 ```
-Checking the last executed run in git@github.com:USER/REPO repository's workflow:
-Workflow: deploy to github pages | state: queued
+$git_workflows
+Info: Checking the last executed run in git@github.com:USER/REPO...
 Workflow: pages build and deployment | state: waiting
 Workflow: pages build and deployment | state: completed
-Workflow: deploy to github pages | state: completed
-Workflow conclusion: success | Time: 15s | DT: 2024-07-24 10:55:40 +00:00
-API Rate Limit remaining: 4994
+Success: Workflow conclusion: success | Duration: 27s | Completed at: 2024-12-16 17:30:31 +00:00
+Info: GitHub API rate limit remaining: 4976
+Checking the last executed run in git@github.com:USER/REPO repository's workflow:
+Workflow: deploy to github pages | state: queued
+```
+
 ```
 
 ## git_better_branch
 
 Checks current status of branches in repo, based off of the [better-branch.sh](https://gist.github.com/schacon/e9e743dee2e92db9a464619b99e94eff) script by [schacon](https://gist.github.com/schacon/).
 
+```
+$git_better-branch --help
+A better way to see your Git branches across projects
+
+Usage: git_better-branch.exe [OPTIONS]
+
+Options:
+  -d, --depth <DEPTH>    Sets the maximum directory depth to search
+      --all              Show all branches (local and remote)
+      --remote           Show only remote branches
+      --branch <BRANCH>  Use this branch as the comparison base
+  -h, --help             Print help
+```
+
 **Output:**
 
 ```
-Repo: git@github.com:USER/REPO
-Ahead Behind Branch                         Last Commit
------ ------ ------------------------------ -------------------
-   13      0 main                           7 weeks ago
-    0      0 dev                            4 months ago
+gitCheck --all
+Repo: git@github.com:someuser/someuserepo
+Comparing against: main
+Ahead Behind Branch                                                 Last Commit
+----- ------ ------------------------------------------------------ -----------
+    0      0 main                                                   6 days ago
+    0      0 origin                                                 6 days ago
+    0      0 origin/main                                            6 days ago
+    0     22 origin/develop                                         6 days ago
+    0     23 origin/feature/US0038-accounts-styling-resolutions-fix 6 days ago
+    0     28 origin/feature/US0037-Transactions-Pie-Chart           7 days ago
+    0     79 origin/feature/US0036-dashboard-syling                 7 days ago
+    0     54 origin/doc/ReadMe2                                     8 days ago
+    0     51 origin/hc5167i-patch-1                                 9 days ago
+    0    370 origin/doc/sprint-documents                            9 days ago
+    0     82 origin/feature/U0036-Adjusting-GCP-Database            9 days ago
+    0     85 origin/US0036/feature-fix                              9 days ago
+    0     88 origin/feature/US0035-GCP-Revert                       9 days ago
+    1    170 origin/feature/US0028-budgeting-page-styling           9 days ago
+    24    568 origin/gh-pages                                        9 days ago
+    8    157 origin/doc/ReadMe                                      10 days ago
+    0    124 origin/feature/US0034-GCP-Connection                   3 weeks ago
+    0    174 origin/feature/US0032-gh-pages                         4 weeks ago
+    0    439 origin/doc/stand-up-documents                          4 weeks ago
+    0    188 origin/feature/US0032-styling-updates                  5 weeks ago
+    2    220 origin/feature/US0028-Budgeting-Frontend               5 weeks ago
+    0    189 origin/testing/QA-Testing-2                            5 weeks ago
+    0    202 origin/feature/US0030-Dashboard-Functionality          6 weeks ago
+    0    204 origin/bug/US0031-Password-Verification-Fix            6 weeks ago
+    0    210 origin/feature/US0027-accounts-page-styling            6 weeks ago
+    0    212 origin/feature/US0029-QA-Fixes                         6 weeks ago
+    0    419 origin/doc/requirements                                6 weeks ago
+    0    234 origin/feature/US0023-transactions-page-styling        6 weeks ago
+    0    234 origin/feature/US0024-transactions-page-styling        6 weeks ago
+    0    234 origin/feature/US0025-Accounts-Backend                 7 weeks ago
+    0    242 origin/feature/US0023-Transactions-Jar-Link            7 weeks ago
+    0    281 origin/feature/US0022-Styling-Fixes-Opening-Pages      7 weeks ago
+    0    291 origin/qa/user_test_home_login                         8 weeks ago
 ```
 
 ## git_stats
@@ -71,13 +121,13 @@ Analyze Git commit contributions per author
 Usage: git_stats.exe [OPTIONS]
 
 Options:
---author <AUTHOR> Filter results by a specific author name (case-insensitive)
---all Include all users (e.g., GitHub, bots) in the results
---merge Include merge commits in the analysis
---branch <BRANCH> Git branch to analyze. Defaults to the current branch if not specified
---exclude [<GLOB>...] Inline glob patterns used to exclude files or directories
---exclude-from-file <FILE> Path to a file containing additional exclude patterns (one per line)
--h, --help Print help
+      --author <AUTHOR>           Filter results by a specific author name (case-insensitive)
+      --all                       Include all users (e.g., GitHub, bots) in the results
+      --merge                     Include merge commits in the analysis
+      --branch <BRANCH>           Git branch to analyze. Defaults to the current branch if not specified
+      --exclude [<GLOB>...]       Inline glob patterns used to exclude files or directories
+      --exclude-from-file <FILE>  Path to a file containing additional exclude patterns (one per line)
+  -h, --help                      Print help
 ```
 
 **Outputs:**
@@ -85,13 +135,18 @@ Options:
 ```
 $ git_stats --all
 
+Processing commit   455/455
+Done processing 455 commits.
+
 Author        Commits   Files         Insertions  Deletions   Net Change  Most Ext    Least Ext
-github        5         6             71          1           70          md          py
-author1       8         8             373         203         170         py          md
-author2       2         3             69          1           68          md          py
+author1       8         16            2036        350         1686        jsx         md
+author2       10        14            787         240         547         md          py
+author3       128       91            14654       10196       4458        css         txt
+author4       24        66            4087        917         3170        jsx         css
+author5       4         14            1199        123         1076        jsx         py
 --------------------------------------------------------------------------------------------------
-Total         15        17            513         205         308         -           -
-Avg           5.00      5.67          171.00      68.33       102.67      -           -
+Total         174       201           22763       11826       10937       -           -
+Avg           34.80     40.20         4552.60     2365.20     2187.40     -           -
 
 ```
 
