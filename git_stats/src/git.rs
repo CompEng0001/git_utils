@@ -1,18 +1,16 @@
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
-use std::process::{Command,exit};
+use std::process::{Command, exit};
 use std::str;
-use std::io::Write;
-use std::io;
+use std::io::{self, Write};
 
 use crate::arg::Config;
 use crate::report::AuthorStats;
 
-
-/// Checks to see if git installed and in PATH and if in a git repo
+/// Checks whether we're inside a valid Git repository and git is available.
 pub fn in_git_repo_check() {
     let output = Command::new("git")
-        .args(&["rev-parse", "--is-inside-work-tree"])
+        .args(["rev-parse", "--is-inside-work-tree"])
         .output();
 
     match output {
@@ -41,38 +39,30 @@ pub fn in_git_repo_check() {
     }
 }
 
-/// Collects Git contribution statistics per author based on the provided configuration.
-///
-/// This function analyzes Git commit history on a specified branch, filters commits
-/// according to author and merge criteria, and aggregates stats such as number of commits,
-/// insertions, deletions, and unique files changed per author.
-///
-/// # Arguments
-///
-/// * `config` - A reference to the CLI configuration containing analysis options.
-///
-/// # Returns
-///
-/// A `HashMap` where the key is the author's name and the value is their aggregated statistics.
+/// Main function to collect contribution statistics by author.
 pub fn collect_git_stats(config: &Config) -> HashMap<String, AuthorStats> {
     let ignore_set = config.ignore_set();
     let mut seen_hashes = HashSet::new();
     let mut stats: HashMap<String, AuthorStats> = HashMap::new();
 
+    let branch = config.resolve_branch();
+    let mut args = vec!["log", "--all", "--pretty=format:%H|%cn"]; // using --all to catch merges across all branches
+    if !config.merge {
+        args.push("--no-merges");
+    }
+
     let output = Command::new("git")
-        .args(["log", &config.resolve_branch(), "--pretty=format:%H|%cn"])
+        .args(&args)
         .output()
         .expect("Failed to run git log");
 
-    let output_str = str::from_utf8(&output.stdout).unwrap();
+    let output_str = str::from_utf8(&output.stdout).unwrap_or("");
     let lines: Vec<&str> = output_str.lines().collect();
     let total = lines.len();
-    let mut count = 0;
 
-    for line in lines {
-        count += 1;
-        print!("\rProcessing commit {:>5}/{:<5}      ", count, total);
-        std::io::stdout().flush().unwrap();
+    for (i, line) in lines.iter().enumerate() {
+        print!("\rProcessing commit {:>5}/{:<5}", i + 1, total);
+        io::stdout().flush().unwrap();
 
         let parts: Vec<&str> = line.split('|').collect();
         if parts.len() != 2 {
@@ -81,22 +71,22 @@ pub fn collect_git_stats(config: &Config) -> HashMap<String, AuthorStats> {
 
         let commit_hash = parts[0];
         if !seen_hashes.insert(commit_hash.to_string()) {
-            continue; // skip duplicate commits
+            continue;
         }
 
         let author = parts[1].to_lowercase().trim().to_string();
 
         if !config.all && (author.contains("github") || author.contains("bot")) {
-            continue; // skip GitHub/bot users unless --all is specified
+            continue;
         }
 
         if !config.merge && is_merge_commit(commit_hash) {
-            continue; // skip merge commits unless --merge is specified
+            continue;
         }
 
         if let Some(author_filter) = &config.author {
             if &author != &author_filter.to_lowercase() {
-                continue; // skip if this author doesn't match the filter
+                continue;
             }
         }
 
@@ -112,26 +102,27 @@ pub fn collect_git_stats(config: &Config) -> HashMap<String, AuthorStats> {
 
         for line in diff_str.lines() {
             let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() == 3 {
-                let file = parts[2];
-                let normalized_path = file.replace('\\', "/");
-                let lowered_path = normalized_path.to_lowercase();
-                let path = Path::new(&lowered_path);
-
-                if ignore_set.is_match(path) {
-                    continue; // skip ignored files
-                }
-
-                let ins = parts[0].parse::<u32>().unwrap_or(0);
-                let del = parts[1].parse::<u32>().unwrap_or(0);
-                insertions += ins;
-                deletions += del;
-                files.push(normalized_path);
+            if parts.len() < 3 {
+                continue;
             }
+            let file = parts.last().unwrap();
+            let normalized_path = file.replace('\\', "/");
+            let lowered_path = normalized_path.to_lowercase();
+            let path = Path::new(&lowered_path);
+
+            if ignore_set.is_match(path) {
+                continue;
+            }
+
+            let ins = parts[0].parse::<u32>().unwrap_or(0);
+            let del = parts[1].parse::<u32>().unwrap_or(0);
+            insertions += ins;
+            deletions += del;
+            files.push(normalized_path);
         }
 
         if insertions + deletions == 0 && files.is_empty() {
-            continue; // skip empty commits
+            continue;
         }
 
         stats.entry(author)
@@ -139,21 +130,12 @@ pub fn collect_git_stats(config: &Config) -> HashMap<String, AuthorStats> {
             .add_commit(commit_hash, files, insertions, deletions);
     }
 
-    println!("\nDone processing {} commits.", total);
+    println!("
+Done processing {} commits.", total);
     stats
 }
 
-/// Determines whether a commit is a merge commit.
-///
-/// A merge commit has more than one parent in the Git history.
-///
-/// # Arguments
-///
-/// * `commit_hash` - SHA of the commit to check.
-///
-/// # Returns
-///
-/// `true` if the commit is a merge commit, `false` otherwise.
+/// Helper to determine if a commit is a merge (has >1 parent)
 fn is_merge_commit(commit_hash: &str) -> bool {
     let output = Command::new("git")
         .args(["rev-list", "--parents", "-n", "1", commit_hash])

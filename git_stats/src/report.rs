@@ -35,8 +35,8 @@ impl AuthorStats {
             self.deletions += deletions;
             for file in files {
                 if self.files_modified.insert(file.clone()) {
-                    if let Some(ext) = file.split('.').last() {
-                        *self.extensions.entry(ext.to_string()).or_insert(0) += 1;
+                    if let Some(ext) = std::path::Path::new(&file).extension().and_then(|s| s.to_str()) {
+                        *self.extensions.entry(ext.to_lowercase()).or_insert(0) += 1;
                     }
                 }
             }
