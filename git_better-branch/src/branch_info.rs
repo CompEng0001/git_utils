@@ -14,6 +14,9 @@ pub struct BranchInfo {
 
     /// A human-readable representation of the last commit time (e.g. `5 days ago`).
     pub relative_time: String,
+    
+    /// The last commit hash (be4791c696db01729d9ffb54ea69cef15c37c619).
+    pub last_commit_hash: String,
 
     /// Number of commits this branch is ahead of the base branch.
     pub ahead: i32,

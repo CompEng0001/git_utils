@@ -93,6 +93,7 @@ pub fn process_repo_with_refs(dir: &str, refs: &[&str], user_branch: Option<&str
             branches.push(BranchInfo {
                 name: branch.to_string(),
                 relative_time: time.to_string(),
+                last_commit_hash: sha.to_string(),
                 ahead,
                 behind,
             });
@@ -115,20 +116,23 @@ pub fn print_branch_table(branches: &[BranchInfo]) {
     let mut max_behind = "Behind".len();
     let mut max_name = "Branch".len();
     let mut max_time = "Last Commit".len();
-
+    let mut max_hash = "Commit".len();
     for b in branches {
         max_ahead = max_ahead.max(b.ahead.to_string().len());
         max_behind = max_behind.max(b.behind.to_string().len());
         max_name = max_name.max(b.name.len());
         max_time = max_time.max(b.relative_time.len());
+        max_hash = max_hash.max(b.last_commit_hash.len());
     }
 
     println!(
-        "{}{:>width_a$}{} {}{:>width_b$}{} {}{:<width_n$}{} {}{:<width_t$}{}",
+        "{}{:>width_a$}{} {}{:>width_b$}{} {}{:<width_n$}{} {}{:<width_h$}{} {}{:<width_t$}{}",
         GREEN, "Ahead", NO_COLOR,
         RED, "Behind", NO_COLOR,
         BLUE, "Branch", NO_COLOR,
+        NO_COLOR, "Commit", NO_COLOR,
         YELLOW, "Last Commit", NO_COLOR,
+        width_h = max_hash,
         width_a = max_ahead,
         width_b = max_behind,
         width_n = max_name,
@@ -136,27 +140,31 @@ pub fn print_branch_table(branches: &[BranchInfo]) {
     );
 
     println!(
-        "{}{:->width_a$}{} {}{:->width_b$}{} {}{:->width_n$}{} {}{:->width_t$}{}",
+        "{}{:->width_a$}{} {}{:->width_b$}{} {}{:->width_n$}{} {}{:->width_h$}{} {}{:->width_t$}{}",
         GREEN, "", NO_COLOR,
         RED, "", NO_COLOR,
         BLUE, "", NO_COLOR,
+        NO_COLOR, "", NO_COLOR,
         YELLOW, "", NO_COLOR,
         width_a = max_ahead,
         width_b = max_behind,
         width_n = max_name,
+        width_h = max_hash,
         width_t = max_time,
     );
 
     for b in branches {
         println!(
-            "{}{:>width_a$}{} {}{:>width_b$}{} {}{:<width_n$}{} {}{:<width_t$}{}",
+            "{}{:>width_a$}{} {}{:>width_b$}{} {}{:<width_n$}{} {}{:<width_h$}{} {}{:<width_t$}{}",
             GREEN, b.ahead, NO_COLOR,
             RED, b.behind, NO_COLOR,
             BLUE, b.name, NO_COLOR,
+            NO_COLOR, b.last_commit_hash, NO_COLOR,
             YELLOW, b.relative_time, NO_COLOR,
             width_a = max_ahead,
             width_b = max_behind,
             width_n = max_name,
+            width_h = max_hash,
             width_t = max_time,
         );
     }
