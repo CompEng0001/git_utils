@@ -46,8 +46,6 @@ Checking the last executed run in git@github.com:USER/REPO repository's workflow
 Workflow: deploy to github pages | state: queued
 ```
 
-```
-
 ## git_better_branch
 
 Checks current status of branches in repo, based off of the [better-branch.sh](https://gist.github.com/schacon/e9e743dee2e92db9a464619b99e94eff) script by [schacon](https://gist.github.com/schacon/).
@@ -72,41 +70,38 @@ Options:
 gitCheck --all
 Repo: git@github.com:someuser/someuserepo
 Comparing against: main
-Ahead Behind Branch                                                 Last Commit
------ ------ ------------------------------------------------------ -----------
-    0      0 main                                                   6 days ago
-    0      0 origin                                                 6 days ago
-    0      0 origin/main                                            6 days ago
-    0     22 origin/develop                                         6 days ago
-    0     23 origin/feature/US0038-accounts-styling-resolutions-fix 6 days ago
-    0     28 origin/feature/US0037-Transactions-Pie-Chart           7 days ago
-    0     79 origin/feature/US0036-dashboard-syling                 7 days ago
-    0     54 origin/doc/ReadMe2                                     8 days ago
-    0     51 origin/hc5167i-patch-1                                 9 days ago
-    0    370 origin/doc/sprint-documents                            9 days ago
-    0     82 origin/feature/U0036-Adjusting-GCP-Database            9 days ago
-    0     85 origin/US0036/feature-fix                              9 days ago
-    0     88 origin/feature/US0035-GCP-Revert                       9 days ago
-    1    170 origin/feature/US0028-budgeting-page-styling           9 days ago
-    24    568 origin/gh-pages                                        9 days ago
-    8    157 origin/doc/ReadMe                                      10 days ago
-    0    124 origin/feature/US0034-GCP-Connection                   3 weeks ago
-    0    174 origin/feature/US0032-gh-pages                         4 weeks ago
-    0    439 origin/doc/stand-up-documents                          4 weeks ago
-    0    188 origin/feature/US0032-styling-updates                  5 weeks ago
-    2    220 origin/feature/US0028-Budgeting-Frontend               5 weeks ago
-    0    189 origin/testing/QA-Testing-2                            5 weeks ago
-    0    202 origin/feature/US0030-Dashboard-Functionality          6 weeks ago
-    0    204 origin/bug/US0031-Password-Verification-Fix            6 weeks ago
-    0    210 origin/feature/US0027-accounts-page-styling            6 weeks ago
-    0    212 origin/feature/US0029-QA-Fixes                         6 weeks ago
-    0    419 origin/doc/requirements                                6 weeks ago
-    0    234 origin/feature/US0023-transactions-page-styling        6 weeks ago
-    0    234 origin/feature/US0024-transactions-page-styling        6 weeks ago
-    0    234 origin/feature/US0025-Accounts-Backend                 7 weeks ago
-    0    242 origin/feature/US0023-Transactions-Jar-Link            7 weeks ago
-    0    281 origin/feature/US0022-Styling-Fixes-Opening-Pages      7 weeks ago
-    0    291 origin/qa/user_test_home_login                         8 weeks ago
+Ahead Behind Branch                                                             Commit  Last Commit
+----- ------ -------------------------------------------------------------------------- ------------
+   29    275 origin/gh-pages                                                    dccd828 8 days ago
+    0      0 main                                                               17d44f9 8 days ago
+    0      0 origin                                                             17d44f9 8 days ago
+    0      0 origin/main                                                        17d44f9 8 days ago
+    0      1 origin/develop                                                     cf7cdda 8 days ago
+    0      5 origin/chaange-file-location                                       0847de0 8 days ago
+    0     14 origin/US000045-add-front-end-tests                                93ece51 8 days ago
+    0     33 origin/backend-unit-tests                                          2ec685b 8 days ago
+    0     42 origin/us000005-requirements-engineering-markdown                  4c641f0 8 days ago
+    0     45 origin/final-changes                                               9f51f47 8 days ago
+    0    102 origin/Create-Active-jobs-endpoint                                 c9e8a35 8 days ago
+    0     59 origin/US000008-Create-systemModelling.md-and-complete-content-    b99713b 8 days ago
+    0     55 origin/Delete-controller-used-for-testing                          5dec265 8 days ago
+    0     47 origin/quick-fixes                                                 9a577ec 8 days ago
+    0     49 origin/HOTFIX-adding-loading-when-users-try-to-log-in              2ceb786 8 days ago
+    0     53 origin/update-home-screen                                          140909d 8 days ago
+    0     55 origin/only-verified-users-can-access-dashboards                   7aa30c9 8 days ago
+    0    256 origin/us000007-create-application-design-using-design-tool        3348f0d 9 days ago
+    0     81 origin/us000044-fix-react-icon-being-on-every-job                  e2dd5d3 9 days ago
+    0     82 origin/US000043-fix-password-being-returned-in-jobseekercontroller 4caff2c 9 days ago
+    0     87 origin/US000041-Create-Employer-dashboard                          d734e19 12 days ago
+    0     90 origin/US000029-set-up-API-connections-for-login-signup            6f7b8cc 3 weeks ago
+    0     96 origin/us000039-testing-gcp-onfront-end                            c6aa254 3 weeks ago
+    0    206 origin/update-application-properties                               0e9db11 7 weeks ago
+    0    243 origin/US000018-Update-homepage-goals-css                          a944ec3 9 weeks ago
+    5    245 origin/us000005-requirements-engineering                           23d382e 10 weeks ago
+    0    252 origin/US000003-Create-React-App-in-Typescript                     77af51b 3 months ago
+    0    260 origin/US000004-Create-Spring-Backend-App                          10a955d 3 months ago
+    0    271 origin/US000002_Project_Structure_Setup                            a7ee4cd 3 months ago
+    0    273 origin/feedback                                                    2734b2a 3 months ago
 ```
 
 ## git_stats
