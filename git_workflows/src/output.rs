@@ -48,3 +48,8 @@ pub fn print_info(msg: &str) {
 pub fn print_warning(msg: &str) {
     println!("{} {}", "Warning:".yellow().bold(), msg);
 }
+
+/// Prints a warning message with red prefix.
+pub fn print_failure(msg: &str) {
+    println!("{} {}", "Failure:".red().bold(), msg);
+}

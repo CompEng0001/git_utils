@@ -14,7 +14,7 @@ use tokio::time::sleep;
 
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
 use crate::output::print_github_api_error;
-use crate::output::{print_success, print_info, print_warning};
+use crate::output::{print_failure, print_success, print_info, print_warning};
 
 /// Polls the GitHub Actions API for the most recent workflow run.
 ///
@@ -53,6 +53,8 @@ pub async fn monitor_workflow(
     ));
 
     let mut v: Value;
+    let mut workflow_name: &str;
+    let mut status: &str;
 
     loop {
         let client = reqwest::Client::new();
@@ -111,17 +113,17 @@ pub async fn monitor_workflow(
             }
         }
 
-        let status = v["workflow_runs"][0]["status"].as_str().unwrap();
-        let workflow_name = v["workflow_runs"][0]["name"].as_str().unwrap();
+        status = v["workflow_runs"][0]["status"].as_str().unwrap();
+        workflow_name = v["workflow_runs"][0]["name"].as_str().unwrap();
 
         match status {
-            "in_progress" | "queued" | "waiting" => println!("Workflow: {} | state: {}", workflow_name, status),
+            "in_progress" | "queued" | "waiting" |"pending" | "requested" => print_info(&format!("Workflow[{}] | state: {}", workflow_name, status)),
             "completed" => {
-                println!("Workflow: {} | state: {}", workflow_name, status);
+                print_info(&format!("Workflow[{}] | state: {}", workflow_name, status));
                 break;
             }
             _ => {
-                println!("Workflow: {} | state: {}", workflow_name, status);
+                print_info(&format!("Workflow[{}] | state: {}", workflow_name, status));
                 break;
             }
         }
@@ -137,13 +139,25 @@ pub async fn monitor_workflow(
     let end_time = DateTime::parse_from_rfc3339(end_time).expect("Failed to parse end time");
     let duration = end_time.signed_duration_since(start_time);
 
-    print_success(&format!(
-        "Workflow conclusion: {} | Duration: {}s | Completed at: {}",
-        conclusion,
-        duration.num_seconds(),
-        end_time
-    ));
-
+    if conclusion == "success"{
+        print_success(&format!(
+            "Workflow[{}] | conclusion: {} | Duration: {}s | Completed at: {}",
+            workflow_name,
+            conclusion,
+            duration.num_seconds(),
+            end_time
+        ));
+    }
+    else {
+        print_failure(&format!(
+            "Workflow[{}] | conclusion: {} | Duration: {}s | Completed at: {}",
+            workflow_name,
+            conclusion,
+            duration.num_seconds(),
+            end_time
+        ));
+    }
+    
     fs::remove_file(&workflow_file).expect("Unable to remove workflow file");
 }
 
@@ -157,7 +171,6 @@ pub async fn monitor_workflow(
 ///
 /// # Errors
 /// Returns an error if the request fails or if the response headers can't be parsed.
-
 pub async fn check_rate_limit(token: &str) -> Result<(), Box<dyn std::error::Error>> {
     let client = reqwest::Client::new();
     let response = client
