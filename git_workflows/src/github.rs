@@ -13,7 +13,7 @@ use std::{fs, process::exit, time::Duration};
 use tokio::time::sleep;
 
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
-use crate::output::print_github_api_error;
+use crate::output::{print_github_api_error, print_tree, print_tree_header, print_tree_branch};
 use crate::output::{print_failure, print_success, print_info, print_warning};
 
 /// Polls the GitHub Actions API for the most recent workflow run.
@@ -38,6 +38,9 @@ pub async fn monitor_workflow(
     token: &str,
     debug: bool,
 ) {
+    use std::collections::HashMap;
+
+    let poll_interval_secs = 5u64;
     let workflow_file = std::env::current_dir()
         .expect("Unable to get current directory")
         .join(".workflow.json");
@@ -51,18 +54,24 @@ pub async fn monitor_workflow(
         "Checking the last executed run in git@github.com:{}/{}...",
         repo_owner, repo_name
     ));
+    println!();
+
+    // Track per-workflow print state
+    struct PrintState {
+        header_printed: bool,
+        last_status: Option<String>,
+    }
+    let mut printed: HashMap<String, PrintState> = HashMap::new();
+
+    let client = reqwest::Client::new();
+    let url = format!(
+        "https://api.github.com/repos/{}/{}/actions/runs",
+        repo_owner, repo_name
+    );
 
     let mut v: Value;
-    let mut workflow_name: &str;
-    let mut status: &str;
 
     loop {
-        let client = reqwest::Client::new();
-        let url = format!(
-            "https://api.github.com/repos/{}/{}/actions/runs",
-            repo_owner, repo_name
-        );
-
         if debug {
             print_info(&format!("GET {}", url));
         }
@@ -78,18 +87,18 @@ pub async fn monitor_workflow(
 
         match response {
             Ok(resp) => {
-                let status = resp.status();
+                let http_status = resp.status();
                 let body = resp.text().await.unwrap_or_else(|_| {
                     eprintln!("Failed to read response body");
                     exit(1);
                 });
 
                 if debug {
-                    print_info(&format!("HTTP status: {}", status));
+                    print_info(&format!("HTTP status: {}", http_status));
                 }
 
-                if !status.is_success() {
-                    print_github_api_error(status.as_u16(), &body, repo_owner, repo_name);
+                if !http_status.is_success() {
+                    print_github_api_error(http_status.as_u16(), &body, repo_owner, repo_name);
                     exit(1);
                 }
 
@@ -113,52 +122,81 @@ pub async fn monitor_workflow(
             }
         }
 
-        status = v["workflow_runs"][0]["status"].as_str().unwrap();
-        workflow_name = v["workflow_runs"][0]["name"].as_str().unwrap();
+        // We’ll stream only the most recent run (index 0), as before.
+        let workflow_name = v["workflow_runs"][0]["name"].as_str().unwrap_or("unknown").to_string();
+        let status = v["workflow_runs"][0]["status"].as_str().unwrap_or("unknown").to_string();
 
-        match status {
-            "in_progress" | "queued" | "waiting" |"pending" | "requested" => print_info(&format!("Workflow[{}] | state: {}", workflow_name, status)),
+        // Ensure header printed once
+        let st = printed.entry(workflow_name.clone()).or_insert(PrintState {
+            header_printed: false,
+            last_status: None,
+        });
+        if !st.header_printed {
+            print_tree_header("Info:", colored::Color::Blue, &format!("Workflow[{}]", workflow_name));
+            st.header_printed = true;
+        }
+
+        // On a NEW state, print a branch line immediately.
+        if st.last_status.as_deref() != Some(&status) {
+            // While streaming, treat any non-terminal as a mid-branch ("├─").
+            // We'll print the terminal ("└─") only when we reach `completed`.
+            let is_last_for_now = false;
+            print_tree_branch("Info:", is_last_for_now, "state", &status);
+            st.last_status = Some(status.clone());
+        }
+
+        // Continue polling until terminal
+        match status.as_str() {
+            "in_progress" | "queued" | "waiting" | "pending" | "requested" => {
+                tokio::time::sleep(Duration::from_secs(poll_interval_secs)).await;
+                continue;
+            }
             "completed" => {
-                print_info(&format!("Workflow[{}] | state: {}", workflow_name, status));
+                // Replace the last printed "mid" impression with an explicit terminal line.
+                // We *also* print the final completed state as the last branch.
+                print_tree_branch("Info:", true, "state", "completed");
+                println!();
                 break;
             }
             _ => {
-                print_info(&format!("Workflow[{}] | state: {}", workflow_name, status));
+                // Unknown or terminal-ish: stop polling
+                print_tree_branch("Info:", true, "state", &status);
+                println!();
                 break;
             }
         }
-
-        sleep(Duration::from_secs(20)).await;
     }
 
-    let conclusion = v["workflow_runs"][0]["conclusion"].as_str().unwrap();
+    // Final outcome block (printed immediately after completion)
+    let conclusion = v["workflow_runs"][0]["conclusion"].as_str().unwrap_or("unknown");
+    let name_for_outcome = v["workflow_runs"][0]["name"].as_str().unwrap_or("unknown");
+
     let start_time = v["workflow_runs"][0]["created_at"].as_str().unwrap();
     let end_time = v["workflow_runs"][0]["updated_at"].as_str().unwrap();
 
-    let start_time = DateTime::parse_from_rfc3339(start_time).expect("Failed to parse start time");
-    let end_time = DateTime::parse_from_rfc3339(end_time).expect("Failed to parse end time");
-    let duration = end_time.signed_duration_since(start_time);
+    let start_time = chrono::DateTime::parse_from_rfc3339(start_time).expect("Failed to parse start time");
+    let end_time = chrono::DateTime::parse_from_rfc3339(end_time).expect("Failed to parse end time");
+    let duration_secs = end_time.signed_duration_since(start_time).num_seconds();
 
-    if conclusion == "success"{
-        print_success(&format!(
-            "Workflow[{}] | conclusion: {} | Duration: {}s | Completed at: {}",
-            workflow_name,
-            conclusion,
-            duration.num_seconds(),
-            end_time
-        ));
+    let rows = vec![
+        ("conclusion".to_string(), conclusion.to_string()),
+        ("duration".to_string(), format!("{}s", duration_secs)),
+        ("completed at".to_string(), end_time.to_string()),
+    ];
+
+    if conclusion == "success" {
+        print_tree_header("Success:", colored::Color::Green, &format!("Workflow[{}]", name_for_outcome));
+        for (i, (k, v)) in rows.iter().enumerate() {
+            print_tree_branch("Success:", i + 1 == rows.len(), k, v);
+        }
+    } else {
+        print_tree_header("Failure:", colored::Color::Red, &format!("Workflow[{}]", name_for_outcome));
+        for (i, (k, v)) in rows.iter().enumerate() {
+            print_tree_branch("Failure:", i + 1 == rows.len(), k, v);
+        }
     }
-    else {
-        print_failure(&format!(
-            "Workflow[{}] | conclusion: {} | Duration: {}s | Completed at: {}",
-            workflow_name,
-            conclusion,
-            duration.num_seconds(),
-            end_time
-        ));
-    }
-    
-    fs::remove_file(&workflow_file).expect("Unable to remove workflow file");
+
+    fs::remove_file(&workflow_file).ok();
 }
 
 /// Checks the GitHub API rate limit using the `/rate_limit` endpoint.

@@ -1,0 +1,468 @@
+===== ./args.rs =====
+//! Command-line argument parser for the GitHub Workflow Checker.
+//!
+//! This module defines the [`Cli`] struct and its parsing behavior using the [`clap`] crate.
+//! It allows optional specification of the GitHub repository owner and name via `--owner` and `--repo` flags.
+//!
+//! If neither argument is supplied, the application falls back to detecting the repository from the local Git config.
+use clap::Parser;
+
+/// CLI interface for the GitHub Workflow Checker.
+///
+/// Supports optional arguments to manually specify the GitHub repository:
+/// - `--owner`: GitHub username or organization (e.g., `uniofgreenwich`)
+/// - `--repo`: Repository name (e.g., `ELEE1149_Exercises`)
+///
+/// If not provided, the tool attempts to extract this info from `.git/config`.
+#[derive(Parser, Debug)]
+#[command(author, version, about)]
+pub struct Cli {
+    /// Repository owner (e.g. uniofgreenwich)
+    #[arg(short, long)]
+    pub owner: Option<String>,
+
+    /// Repository name (e.g. ELEE1149_Exercises)
+    #[arg(short, long)]
+    pub repo: Option<String>,
+
+    /// Enable debug mode (prints internal info)
+    #[arg(long)]
+    pub debug: bool,
+}
+
+impl Cli {
+    /// Parse the CLI arguments and return a [`Cli`] instance.
+    ///
+    /// # Panics
+    /// This will panic if argument parsing fails (e.g., invalid input format).
+    pub fn parse_args() -> Self {
+        Cli::parse()
+    }
+}
+
+===== ./git.rs =====
+//! Git repository inspector.
+//!
+//! This module provides functionality to extract the GitHub repository
+//! owner and name from the local `.git/config` file.
+//!
+//! If the program is not running inside a Git repository, it supports falling
+//! back to parsing command-line arguments for owner and repo name.
+use regex::Regex;
+use std::{env, fs, process::exit};
+use std::process::Command;
+
+/// Attempts to determine the repository owner and name.
+///
+/// This function will first check if the current working directory is inside a Git
+/// repository using `git rev-parse --is-inside-work-tree`. If so, it reads the
+/// `.git/config` file and parses the `url` entry for the `origin` remote to extract
+/// the GitHub owner and repository name.
+///
+/// If the directory is not inside a Git repo, this function falls back to expecting
+/// two arguments: the repository owner at position 1 and the repository name at position 2.
+///
+/// # Arguments
+///
+/// * `args` - A vector of command-line arguments. Only used if not in a Git repo.
+///
+/// # Returns
+///
+/// A tuple `(owner, repo)` as `String` values.
+///
+/// # Panics / Exits
+///
+/// This function will terminate the program with an error message if:
+/// - The Git command fails or indicates it's not inside a repo
+/// - The `.git/config` file cannot be read or parsed
+/// - Not enough CLI arguments are provided when required
+pub async fn get_repo_path(args: Vec<String>) -> (String, String) {
+    let current_dir = env::current_dir().expect("Unable to get current directory");
+    let output = Command::new("git")
+        .current_dir(&current_dir)
+        .args(&["rev-parse", "--is-inside-work-tree"])
+        .output()
+        .expect("Failed to execute git command");
+
+    if output.status.success() && String::from_utf8_lossy(&output.stdout).trim() == "true" {
+        let config_path = current_dir.join(".git").join("config");
+        if !config_path.exists() {
+            eprintln!(".git/config not found. Are you in a Git repository?");
+            exit(1);
+        }
+        let config_content = fs::read_to_string(config_path).unwrap_or_else(|e| {
+            eprintln!("Unable to read .git/config: {}", e);
+            exit(1);
+        });
+
+        let owner_re = Regex::new(r#"url\s*=\s*git@github\.com:(\w+)/([\w-]+)\.git"#).unwrap();
+        let caps = owner_re.captures(&config_content).unwrap_or_else(|| {
+            eprintln!("Failed to extract repository owner and name from .git/config");
+            exit(1);
+        });
+
+        let owner = caps.get(1).unwrap().as_str().to_string();
+        let name = caps.get(2).unwrap().as_str().to_string();
+        (owner, name)
+    } else if args.len() == 3 {
+        (args[1].clone(), args[2].clone())
+    } else {
+        eprintln!("Position 1: Owner, position 2: repo name, or be in a git repo");
+        exit(1);
+    }
+}
+
+===== ./github.rs =====
+//! GitHub API client for monitoring workflow runs and checking rate limits.
+//!
+//! This module provides functionality to:
+//! - Poll the GitHub Actions API for the latest workflow run
+//! - Print workflow state transitions (e.g., queued, in_progress, completed)
+//! - Show final status and duration of the run
+//! - Report the current GitHub API rate limit
+//!
+//! It relies on an authenticated GitHub token passed via the `Authorization` header.
+use chrono::DateTime;
+use serde_json::Value;
+use std::{fs, process::exit, time::Duration};
+use tokio::time::sleep;
+
+use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE, USER_AGENT};
+use crate::output::print_github_api_error;
+use crate::output::{print_failure, print_success, print_info, print_warning};
+
+/// Polls the GitHub Actions API for the most recent workflow run.
+///
+/// This function checks the status of the most recent GitHub Actions workflow run
+/// for the given repository, polling periodically until the run is no longer active
+/// (`queued`, `in_progress`, etc.). Once the run is complete, it prints:
+/// - The workflow name
+/// - Final state and conclusion
+/// - Execution duration
+///
+/// It temporarily writes the API response to `.workflow.json` for debugging.
+///
+/// # Arguments
+/// * `repo_owner` - The GitHub user/org that owns the repo.
+/// * `repo_name` - The name of the repository.
+/// * `token` - A valid GitHub API token.
+/// * `debug` - prints the exact URL and headers you're sending for easier troubleshooting?
+pub async fn monitor_workflow(
+    repo_owner: &str,
+    repo_name: &str,
+    token: &str,
+    debug: bool,
+) {
+    let duration = 10u64; // Time between requests
+    let workflow_file = std::env::current_dir()
+        .expect("Unable to get current directory")
+        .join(".workflow.json");
+
+    if debug {
+        print_info("Debug mode is ON");
+        print_info(&format!("Workflow file: {:?}", workflow_file));
+    }
+
+    print_info(&format!(
+        "Checking the last executed run in git@github.com:{}/{}...",
+        repo_owner, repo_name
+    ));
+
+    let mut v: Value;
+    let mut workflow_name: &str;
+    let mut status: &str;
+
+    loop {
+        let client = reqwest::Client::new();
+        let url = format!(
+            "https://api.github.com/repos/{}/{}/actions/runs",
+            repo_owner, repo_name
+        );
+
+        if debug {
+            print_info(&format!("GET {}", url));
+        }
+
+        let response = client
+            .get(&url)
+            .header(ACCEPT, "application/vnd.github.everest-preview+json")
+            .header(CONTENT_TYPE, "application/json")
+            .header(AUTHORIZATION, format!("token {}", token))
+            .header(USER_AGENT, "Rust Worflow Check")
+            .send()
+            .await;
+
+        match response {
+            Ok(resp) => {
+                let status = resp.status();
+                let body = resp.text().await.unwrap_or_else(|_| {
+                    eprintln!("Failed to read response body");
+                    exit(1);
+                });
+
+                if debug {
+                    print_info(&format!("HTTP status: {}", status));
+                }
+
+                if !status.is_success() {
+                    print_github_api_error(status.as_u16(), &body, repo_owner, repo_name);
+                    exit(1);
+                }
+
+                fs::write(&workflow_file, &body).expect("Unable to write workflow file");
+
+                v = serde_json::from_str(&body).unwrap_or_else(|e| {
+                    eprintln!("Failed to parse JSON response: {}", e);
+                    eprintln!("Response body: {}", body);
+                    exit(1);
+                });
+            }
+            Err(e) => {
+                print_warning(&format!(
+                    "Failed to send request to GitHub API for {}/{}: {}",
+                    repo_owner, repo_name, e
+                ));
+                if debug {
+                    print_info("Tip: Check internet access, proxy settings, or token validity.");
+                }
+                exit(1);
+            }
+        }
+
+        status = v["workflow_runs"][0]["status"].as_str().unwrap();
+        workflow_name = v["workflow_runs"][0]["name"].as_str().unwrap();
+
+        match status {
+            "in_progress" | "queued" | "waiting" |"pending" | "requested" => print_info(&format!("Workflow[{}] | state: {}", workflow_name, status)),
+            "completed" => {
+                print_info(&format!("Workflow[{}] | state: {}", workflow_name, status));
+                break;
+            }
+            _ => {
+                print_info(&format!("Workflow[{}] | state: {}", workflow_name, status));
+                break;
+            }
+        }
+
+        sleep(Duration::from_secs(duration)).await;
+    }
+
+    let conclusion = v["workflow_runs"][0]["conclusion"].as_str().unwrap();
+    let start_time = v["workflow_runs"][0]["created_at"].as_str().unwrap();
+    let end_time = v["workflow_runs"][0]["updated_at"].as_str().unwrap();
+
+    let start_time = DateTime::parse_from_rfc3339(start_time).expect("Failed to parse start time");
+    let end_time = DateTime::parse_from_rfc3339(end_time).expect("Failed to parse end time");
+    let duration = end_time.signed_duration_since(start_time);
+
+    if conclusion == "success"{
+        print_success(&format!(
+            "Workflow[{}] | conclusion: {} | Duration: {}s | Completed at: {}",
+            workflow_name,
+            conclusion,
+            duration.num_seconds(),
+            end_time
+        ));
+    }
+    else {
+        print_failure(&format!(
+            "Workflow[{}] | conclusion: {} | Duration: {}s | Completed at: {}",
+            workflow_name,
+            conclusion,
+            duration.num_seconds(),
+            end_time
+        ));
+    }
+    
+    fs::remove_file(&workflow_file).expect("Unable to remove workflow file");
+}
+
+/// Checks the GitHub API rate limit using the `/rate_limit` endpoint.
+///
+/// Prints the number of remaining requests to stdout. This is useful for debugging
+/// or verifying if your token is being throttled.
+///
+/// # Arguments
+/// * `token` - A valid GitHub API token.
+///
+/// # Errors
+/// Returns an error if the request fails or if the response headers can't be parsed.
+pub async fn check_rate_limit(token: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let client = reqwest::Client::new();
+    let response = client
+        .get("https://api.github.com/rate_limit")
+        .header(ACCEPT, "application/vnd.github.v3+json")
+        .header(USER_AGENT, "Rust Worflow Check")
+        .header(AUTHORIZATION, format!("token {}", token))
+        .send()
+        .await?;
+
+    let headers = response.headers();
+    if let Some(rate_limit_remaining) = headers.get("X-RateLimit-Remaining") {
+        let remaining = rate_limit_remaining.to_str()?.parse::<u32>()?;
+        print_info(&format!("GitHub API rate limit remaining: {}", remaining));
+    } else {
+        print_warning("Could not find X-RateLimit-Remaining header.");
+    }
+    Ok(())
+}
+
+===== ./main.rs =====
+//! GitHub Workflow Monitor CLI
+//!
+//! This tool checks the most recent GitHub Actions workflow run for a repository,
+//! either inferred from the local `.git/config` or provided explicitly via command-line arguments.
+//!
+//! It supports:
+//! - Detecting the repository owner/name from the local git configuration
+//! - Checking the workflow status via GitHub's API
+//! - Displaying workflow name, state, duration, and conclusion
+//! - Optional CLI overrides for `--owner` and `--repo`
+//! - Reporting GitHub API rate limits
+//!
+//! # Example Usage
+//!
+//! ```bash
+//! # Automatically detect the repo from the current directory
+//! gw
+//!
+//! # Manually specify the GitHub repo
+//! gw --owner your-username --repo your-repo
+//! ```
+mod args;
+mod git;
+mod github;
+mod output;
+mod token;
+
+use args::Cli;
+use git::get_repo_path;
+use github::{check_rate_limit, monitor_workflow};
+use token::get_github_token;
+
+/// Entry point for the GitHub Workflow Monitor.
+///
+/// Uses command-line arguments (or Git config) to determine the target repository.
+/// Reads the GitHub API token from the `GITHUB_TOKEN_PATH` environment variable.
+/// Fetches the latest workflow run, polls it until complete, and prints the result.
+#[tokio::main]
+async fn main() {
+    let cli = Cli::parse_args();
+
+    // Prefer CLI args, fallback to Git config
+    let (repo_owner, repo_name) = match (&cli.owner, &cli.repo) {
+        (Some(owner), Some(repo)) => (owner.clone(), repo.clone()),
+        _ => get_repo_path(vec![]).await,
+    };
+
+    let github_token = get_github_token();
+
+    monitor_workflow(&repo_owner, &repo_name, &github_token, cli.debug).await;
+
+    if let Err(e) = check_rate_limit(&github_token).await {
+        eprintln!("Failed to check GitHub API rate limit.");
+        eprintln!("Details: {}", e);
+    }
+}
+
+===== ./output.rs =====
+//! Output utilities for user-friendly terminal messages.
+//!
+//! This module formats and displays GitHub API responses and general status messages
+//! using consistent terminal output formatting and color for better readability.
+
+use colored::*;
+use serde_json::Value;
+
+/// Prints a detailed GitHub API error message to stderr.
+///
+/// Attempts to parse the response body as JSON to extract a message and documentation URL.
+/// Falls back to raw body display if parsing fails.
+///
+/// # Arguments
+/// * `status` - HTTP status code
+/// * `body` - API response body (expected JSON)
+/// * `repo_owner` - GitHub username or organization
+/// * `repo_name` - Repository name
+pub fn print_github_api_error(status: u16, body: &str, repo_owner: &str, repo_name: &str) {
+    eprintln!("{}", "GitHub API Error".red().bold());
+    eprintln!("HTTP Status: {}", status);
+
+    if let Ok(err_json) = serde_json::from_str::<Value>(body) {
+        let msg = err_json.get("message").and_then(|v| v.as_str()).unwrap_or("No message");
+        let doc = err_json.get("documentation_url").and_then(|v| v.as_str()).unwrap_or("No URL");
+        eprintln!("Message: {}", msg);
+        eprintln!(
+            "Tip: Check that the repository '{}/{}' exists and your token has access.",
+            repo_owner, repo_name
+        );
+        eprintln!("Docs: {}", doc);
+    } else {
+        eprintln!("Raw Response: {}", body);
+    }
+}
+
+/// Prints a success message in green.
+pub fn print_success(msg: &str) {
+    println!("{} {}", "Success:".green().bold(), msg);
+}
+
+/// Prints a general info message with blue prefix.
+pub fn print_info(msg: &str) {
+    println!("{} {}", "Info:".blue().bold(), msg);
+}
+
+/// Prints a warning message with yellow prefix.
+pub fn print_warning(msg: &str) {
+    println!("{} {}", "Warning:".yellow().bold(), msg);
+}
+
+/// Prints a warning message with red prefix.
+pub fn print_failure(msg: &str) {
+    println!("{} {}", "Failure:".red().bold(), msg);
+}
+
+===== ./token.rs =====
+//! GitHub token loader.
+//!
+//! This module is responsible for retrieving a GitHub personal access token (PAT)
+//! from a file whose path is specified by the `GITHUB_TOKEN_PATH` environment variable.
+//!
+//! The token is required to authenticate API requests made to the GitHub REST API.
+//!
+//! # Environment Variable
+//! - `GITHUB_TOKEN_PATH`: must point to a plaintext file containing the token (with no trailing newline if possible).
+//!
+//! # Errors
+//! This module will terminate the process with an error message if:
+//! - The environment variable is not set
+//! - The file does not exist at the specified path
+//! - The file cannot be read
+use std::{env, fs, path::PathBuf, process::exit};
+
+/// Reads the GitHub personal access token from a file specified by the `GITHUB_TOKEN_PATH` environment variable.
+///
+/// # Returns
+/// A trimmed `String` containing the token.
+///
+/// # Panics
+/// This function will terminate the program with an error message if:
+/// - The `GITHUB_TOKEN_PATH` environment variable is not set
+/// - The specified file does not exist
+/// - The file cannot be read
+pub fn get_github_token() -> String {
+    let github_token_path = PathBuf::from(
+        env::var("GITHUB_TOKEN_PATH").expect("GITHUB_TOKEN_PATH environment variable not set, path to GitHub token"),
+    );
+
+    if !github_token_path.exists() {
+        eprintln!("GitHub token file does not exist at path: {:?}", github_token_path);
+        exit(1);
+    }
+
+    fs::read_to_string(&github_token_path)
+        .expect("Unable to read GitHub token")
+        .trim()
+        .to_string()
+}
+

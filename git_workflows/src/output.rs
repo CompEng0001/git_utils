@@ -6,6 +6,56 @@
 use colored::*;
 use serde_json::Value;
 
+
+// Print only the colored header line (no rows yet).
+pub fn print_tree_header(tag: &str, color: Color, header: &str) {
+    let colored_tag = match color {
+        Color::Blue => tag.blue().bold(),
+        Color::Green => tag.green().bold(),
+        Color::Yellow => tag.yellow().bold(),
+        Color::Red => tag.red().bold(),
+        _ => tag.normal(),
+    };
+    println!("{} {}", colored_tag, header);
+}
+
+// Print a single branch row under a previously-printed header.
+// If `is_last` is true, uses └─; otherwise uses ├─.
+pub fn print_tree_branch(tag: &str, is_last: bool, key: &str, val: &str) {
+    let pad = " ".repeat(tag.len() + 1); // align under header after "Tag:"
+    let branch = if is_last { "└─" } else { "├─" };
+    println!("{pad}      {branch} {key}: {val}");
+}
+
+/// Print a "tagged" header (e.g., `Info:`) and a tree of key/value rows:
+/// 
+/// Example:
+/// Info: Workflow[pages build and deployment]
+///        ├─ state: queued
+///        └─ state: in_progress
+pub fn print_tree(tag: &str, color: Color, header: &str, rows: &[(impl AsRef<str>, impl AsRef<str>)]) {
+    // Print the colored tag + header line
+    let tag_plain = tag; // plain text length for alignment
+    let colored_tag = match color {
+        Color::Blue => tag.blue().bold(),
+        Color::Green => tag.green().bold(),
+        Color::Yellow => tag.yellow().bold(),
+        Color::Red => tag.red().bold(),
+        _ => tag.normal(),
+    };
+    println!("{} {}", colored_tag, header);
+
+    // Left padding equals visible length of the tag + one space.
+    let pad = " ".repeat(tag_plain.len() + 1);
+
+    // Print each row as a branch
+    for (i, (k, v)) in rows.iter().enumerate() {
+        let branch = if i + 1 == rows.len() { "└─" } else { "├─" };
+        println!("{pad}      {branch} {}: {}", k.as_ref(), v.as_ref());
+    }
+    println!(); // trailing blank line for readability
+}
+
 /// Prints a detailed GitHub API error message to stderr.
 ///
 /// Attempts to parse the response body as JSON to extract a message and documentation URL.
