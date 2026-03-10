@@ -46,7 +46,14 @@ pub fn collect_git_stats(config: &Config) -> HashMap<String, AuthorStats> {
     let mut stats: HashMap<String, AuthorStats> = HashMap::new();
 
     let branch = config.resolve_branch();
-    let mut args = vec!["log", "--all", "--pretty=format:%H|%cn"]; // using --all to catch merges across all branches
+    let mut args = vec!["log", "--pretty=format:%H|%an"];
+
+    if config.all {
+        args.push("--all");
+    } else {
+        args.push(&branch);
+    }
+
     if !config.merge {
         args.push("--no-merges");
     }
@@ -74,20 +81,10 @@ pub fn collect_git_stats(config: &Config) -> HashMap<String, AuthorStats> {
             continue;
         }
 
-        let author = parts[1].to_lowercase().trim().to_string();
+        let author = parts[1].trim().to_lowercase();
 
         if !config.all && (author.contains("github") || author.contains("bot")) {
             continue;
-        }
-
-        if !config.merge && is_merge_commit(commit_hash) {
-            continue;
-        }
-
-        if let Some(author_filter) = &config.author {
-            if &author != &author_filter.to_lowercase() {
-                continue;
-            }
         }
 
         let diff_output = Command::new("git")
@@ -105,6 +102,7 @@ pub fn collect_git_stats(config: &Config) -> HashMap<String, AuthorStats> {
             if parts.len() < 3 {
                 continue;
             }
+
             let file = parts.last().unwrap();
             let normalized_path = file.replace('\\', "/");
             let lowered_path = normalized_path.to_lowercase();
@@ -130,8 +128,7 @@ pub fn collect_git_stats(config: &Config) -> HashMap<String, AuthorStats> {
             .add_commit(commit_hash, files, insertions, deletions);
     }
 
-    println!("
-Done processing {} commits.", total);
+    println!("\nDone processing {} commits.", total);
     stats
 }
 
